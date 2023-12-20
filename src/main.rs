@@ -1,14 +1,11 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use askama::Template;
-use axum::{routing::get, Router};
 use scraper::{Html, Selector};
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
 };
-use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -21,28 +18,8 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("routing initialized...");
-    let app = Router::new()
-        .route("/", get(hello))
-        // Serve static files from the "assets" directory
-        .nest_service("/assets", ServeDir::new(PathBuf::from("./assets")))
-        .layer(tower_http::trace::TraceLayer::new_for_http());
-    let port = 8000_u16;
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    tracing::info!("listening on {}", addr);
-
-    Ok(axum::serve(listener, app).await?)
+    Ok(())
 }
-
-async fn hello() -> HelloTemplate {
-    HelloTemplate {}
-}
-
-#[derive(Template)]
-#[template(path = "index.html")]
-struct HelloTemplate;
 
 struct ScrapedData {
     title: String,
