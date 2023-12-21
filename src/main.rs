@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+mod args;
 
 use anyhow::Context;
+use clap::Parser;
 use scraper::{Html, Selector};
 use tokio::{
     fs::{self, File},
@@ -12,6 +13,10 @@ use tokio::{
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().init();
 
+    let cli_args = args::Arguments::parse();
+    if let Some(search) = cli_args.search {
+        search_page_parser(&search).await?;
+    }
     Ok(())
 }
 
