@@ -4,19 +4,13 @@ use anyhow::Context;
 use scraper::{Html, Selector};
 use tokio::{
     fs::{self, File},
-    io::AsyncWriteExt,
+    io::{AsyncWriteExt, BufWriter},
+    spawn
 };
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    tracing_subscriber::fmt().init();
 
     Ok(())
 }
@@ -25,7 +19,7 @@ struct ScrapedData {
     title: String,
     link: String,
 }
-async fn scrape_download_page(url: &str) -> anyhow::Result<Vec<ScrapedData>> {
+async fn download_page_scraper(url: &str) -> anyhow::Result<Vec<ScrapedData>> {
     let body = reqwest::get(url).await?.text().await?;
     // Parse the HTML
     let document = Html::parse_document(&body);
@@ -62,27 +56,59 @@ async fn scrape_download_page(url: &str) -> anyhow::Result<Vec<ScrapedData>> {
 
     Ok(scraped_data)
 }
+async fn search_page_parser(query: &str) -> anyhow::Result<()> {
+    tracing::info!("Searching for: {}", query);
+    let body = reqwest::get(format!("https://mp3anime.net/songs/?q={}", query))
+        .await?
+        .text()
+        .await?;
+    let document = Html::parse_document(&body);
+    let selector = Selector::parse("table td a").unwrap();
+    // Iterate over the table rows and extract the link
+    for element in document.select(&selector) {
+        let link = element
+            .value()
+            .attr("href")
+            .with_context(|| "Link not found")?;
+        let full_link = format!("https://mp3anime.net{}", link);
+        if full_link.contains("songs") {
+            download_songs(&full_link).await?;
+        }
+    }
+
+    Ok(())
+}
 
 async fn download_songs(url: &str) -> anyhow::Result<()> {
     // Create a new directory to save the downloaded songs
     let _ = fs::create_dir("anime-songs").await;
 
-    let scraped_data = scrape_download_page(url).await?;
+    let scraped_data = download_page_scraper(url).await?;
+    let mut tasks = Vec::new();
     // Iterate over the song links and download each song
     for element in scraped_data {
         let title = element.title;
         let link = element.link;
-
-        // Download the song
-        tracing::info!("Downloading: {}", title);
-        let song_data = reqwest::get(link).await?.bytes().await?;
-        // Save the song to a file
-        let file_path = format!("anime-songs/{}.mp3", title);
-        let mut file = File::create(&file_path).await?;
-        file.write_all(&song_data).await?;
-        tracing::info!("Downloaded: {}", title);
+        // Create a new task for each song
+        let task = spawn(async move { download_song(&title, &link).await.unwrap() });
+        tasks.push(task);
+        // time::sleep(time::Duration::from_secs(2)).await;
     }
+    // Wait for all the tasks to complete
+    for task in tasks {
+        task.await.with_context(|| "Failed to join task").unwrap();
+    }
+    Ok(())
+}
 
-    tracing::info!("All songs downloaded!");
+async fn download_song(title: &str, link: &str) -> anyhow::Result<()> {
+    tracing::info!("Started downloading: {}", title);
+    let song_data = reqwest::get(link).await?.bytes().await?;
+    let file_path = format!("anime-songs/{}.mp3", title);
+    let file = File::create(&file_path).await?;
+    let mut writer = BufWriter::new(file);
+    writer.write_all(&song_data).await?;
+
+    tracing::info!("Downloaded: {}", title);
     Ok(())
 }
