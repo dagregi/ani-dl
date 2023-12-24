@@ -8,7 +8,6 @@ use tokio::{
 use crate::scrapers::download_page::download_page_scraper;
 
 pub async fn download_songs(url: &str) -> anyhow::Result<()> {
-    // Create a new directory to save the downloaded songs
     let _ = fs::create_dir("downloads").await;
 
     let scraped_data = download_page_scraper(url).await?;
@@ -17,9 +16,8 @@ pub async fn download_songs(url: &str) -> anyhow::Result<()> {
         let task =
             spawn(async move { download_song(&element.title, &element.link).await.unwrap() });
         tasks.spawn(task);
+        let _ = tasks.join_next().await.unwrap();
     }
-    // Wait for all the tasks to complete
-    tokio::join!(tasks.join_next());
 
     Ok(())
 }

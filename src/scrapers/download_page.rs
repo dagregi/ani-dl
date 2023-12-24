@@ -7,10 +7,8 @@ pub struct ScrapedData {
 }
 pub async fn download_page_scraper(url: &str) -> anyhow::Result<Vec<ScrapedData>> {
     let body = reqwest::get(url).await?.text().await?;
-    // Parse the HTML
     let document = Html::parse_document(&body);
     let selector = Selector::parse(".sbutton").unwrap();
-    // Extract the data and collect it
     let scraped_data = document
         .select(&selector)
         .map(|element| {

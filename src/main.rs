@@ -3,7 +3,7 @@ mod downloader;
 pub mod scrapers;
 
 use clap::Parser;
-use scrapers::search_page::search_page_scraper;
+use scrapers::search_page::search_results;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -11,7 +11,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cli_args = args::Arguments::parse();
     if let Some(search) = cli_args.search {
-        search_page_scraper(&search).await?;
+        search_results(&search).await?;
     }
     Ok(())
 }
