@@ -23,14 +23,13 @@ pub async fn download_songs(url: &str) -> anyhow::Result<()> {
 }
 
 pub async fn download_song(title: &str, link: &str) -> anyhow::Result<()> {
-    tracing::info!("Started downloading: {}", title);
-
+    println!("Started downloading: {}", title);
     let song_data = reqwest::get(link).await?.bytes().await?;
     let file_path = format!("downloads/{}.mp3", title);
     let file = File::create(&file_path).await?;
     let mut writer = BufWriter::new(file);
     writer.write_all(&song_data).await?;
 
-    tracing::info!("Downloaded: {}", title);
+    println!("Downloaded: {}", title);
     Ok(())
 }

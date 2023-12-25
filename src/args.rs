@@ -7,7 +7,7 @@ pub struct Arguments {
     /// Scrape all of mp3anime.net (may take some time)
     #[arg(long)]
     pub all: bool,
-    /// Search for a song and download it
+    /// Search for a song
     #[arg(long, value_name = "SONG")]
     pub search: Option<String>,
 }
