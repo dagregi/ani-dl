@@ -1,5 +1,3 @@
-use anyhow::Context;
-use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::Write;
@@ -13,7 +11,19 @@ struct ApiData {
 
 #[derive(Debug, Deserialize)]
 struct AnimeTheme {
+    anime: Anime,
+    song: Song,
     animethemeentries: Vec<AnimeThemeEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Anime {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Song {
+    title: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,22 +37,34 @@ struct Video {
     link: String,
 }
 
-pub async fn search_page_scraper(query: &str) -> anyhow::Result<HashMap<String, String>> {
-    let mut results = HashMap::new();
-    let url = format!("https://api.animethemes.moe/animetheme?q={}&filter%5Bhas%5D=song&include=animethemeentries.videos", query);
+#[derive(Debug)]
+pub struct AnimeThemeData {
+    pub anime_name: String,
+    pub song_title: String,
+    pub basename: String,
+}
+pub async fn search_page_scraper(query: &str) -> anyhow::Result<HashMap<String, AnimeThemeData>> {
+    let url = format!("https://api.animethemes.moe/animetheme?q={}&filter%5Bhas%5D=song&include=song.artists,anime.images,animethemeentries.videos", query);
 
-    println!("Searching for: {}", query);
-    let response = reqwest::get(url).await?;
-    let text = response.text().await?;
-    let api_data: ApiData = serde_json::from_str(&text).expect("Failed to parse JSON");
+    println!("Searching for: {}\n", query);
+    let response = reqwest::get(url).await?.text().await?;
+    let api_data: ApiData = serde_json::from_str(&response)?;
+    let mut results = HashMap::with_capacity(api_data.animethemes.len());
 
-    for anime_theme in api_data.animethemes {
-        for anime_theme_entry in anime_theme.animethemeentries {
-            for video in anime_theme_entry.videos {
-                results.insert(video.link, video.basename);
-            }
-        }
-    }
+    api_data.animethemes.into_iter().for_each(|anime_theme| {
+        anime_theme
+            .animethemeentries
+            .into_iter()
+            .for_each(|anime_theme_entry| {
+                anime_theme_entry.videos.into_iter().for_each(|video| {
+                    results.entry(video.link).or_insert(AnimeThemeData {
+                        anime_name: anime_theme.anime.name.to_string(),
+                        song_title: anime_theme.song.title.to_string(),
+                        basename: video.basename,
+                    });
+                });
+            });
+    });
 
     Ok(results)
 }
@@ -60,20 +82,27 @@ pub async fn search_results(query: &str, is_save_all: bool) -> anyhow::Result<()
         return Ok(());
     }
 
-    results
-        .values()
-        .enumerate()
-        .for_each(|(i, v)| println!("{}. {}", i, v));
-    println!("99. Download all songs");
+    results.values().enumerate().for_each(|(i, v)| {
+        println!(
+            "\x1B[1;37m{}\x1B[0m. \x1B[1;36m{}\x1B[0m \x1B[2;37m({})\x1B[0m",
+            i, v.song_title, v.anime_name
+        );
+    });
+    println!("\x1B[1;37m99. Download all songs");
+    println!("\x1B[1;37mq. Quit");
 
-    print!("Your choice > ");
+    print!("\x1B[1;32mYour choice >\x1B[0m ");
     std::io::stdout().flush().unwrap();
+
     let mut buffer = String::new();
     std::io::stdin().read_line(&mut buffer).unwrap();
-    buffer = buffer.trim().to_string();
+    let choices: Vec<_> = buffer.split_whitespace().collect();
 
-    match buffer.parse::<usize>() {
-        Ok(i) => {
+    if choices.contains(&"q") {
+        return Ok(());
+    }
+    for c in choices.iter() {
+        if let Ok(i) = c.parse::<usize>() {
             if i < results.len() {
                 download_songs(results.keys().nth(i).unwrap()).await?;
             } else if i == 99 {
@@ -82,7 +111,7 @@ pub async fn search_results(query: &str, is_save_all: bool) -> anyhow::Result<()
                 }
             }
         }
-        Err(_) => eprintln!("Errored out"),
     }
+
     Ok(())
 }
