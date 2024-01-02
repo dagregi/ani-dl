@@ -1,29 +1,46 @@
 use anyhow::Context;
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::Write;
 
 use crate::downloader::download_songs;
 
+#[derive(Debug, Deserialize)]
+struct ApiData {
+    animethemes: Vec<AnimeTheme>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnimeTheme {
+    animethemeentries: Vec<AnimeThemeEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnimeThemeEntry {
+    videos: Vec<Video>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Video {
+    basename: String,
+    link: String,
+}
+
 pub async fn search_page_scraper(query: &str) -> anyhow::Result<HashMap<String, String>> {
     let mut results = HashMap::new();
+    let url = format!("https://api.animethemes.moe/animetheme?q={}&filter%5Bhas%5D=song&include=animethemeentries.videos", query);
 
     println!("Searching for: {}", query);
-    let body = reqwest::get(format!("https://mp3anime.net/songs/?q={}", query))
-        .await?
-        .text()
-        .await?;
-    let document = Html::parse_document(&body);
-    let selector = Selector::parse("table td a").unwrap();
-    for element in document.select(&selector) {
-        let title = element.text().collect::<String>();
-        let link = element
-            .value()
-            .attr("href")
-            .with_context(|| "Link not found")?;
-        let full_link = format!("https://mp3anime.net{}", link);
-        if full_link.contains("songs") {
-            results.insert(full_link, title);
+    let response = reqwest::get(url).await?;
+    let text = response.text().await?;
+    let api_data: ApiData = serde_json::from_str(&text).expect("Failed to parse JSON");
+
+    for anime_theme in api_data.animethemes {
+        for anime_theme_entry in anime_theme.animethemeentries {
+            for video in anime_theme_entry.videos {
+                results.insert(video.link, video.basename);
+            }
         }
     }
 
