@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::Write;
 
-use crate::downloader::download_songs;
+use crate::downloader::{download_song, download_songs};
 
 #[derive(Debug, Deserialize)]
 struct ApiData {
@@ -37,7 +37,7 @@ struct Video {
     link: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AnimeThemeData {
     pub anime_name: String,
     pub song_title: String,
@@ -76,9 +76,7 @@ pub async fn search_results(query: &str, is_save_all: bool) -> anyhow::Result<()
         return Ok(());
     }
     if is_save_all {
-        for link in results.keys() {
-            download_songs(link).await?;
-        }
+        download_songs(results).await?;
         return Ok(());
     }
 
@@ -103,12 +101,13 @@ pub async fn search_results(query: &str, is_save_all: bool) -> anyhow::Result<()
     }
     for c in choices.iter() {
         if let Ok(i) = c.parse::<usize>() {
+            let results = results.clone();
             if i < results.len() {
-                download_songs(results.keys().nth(i).unwrap()).await?;
+                let link = results.keys().nth(i).unwrap();
+                let metadata = results.values().nth(i).unwrap();
+                download_song(metadata, link).await?;
             } else if i == 99 {
-                for link in results.keys() {
-                    download_songs(link).await?;
-                }
+                download_songs(results).await?;
             }
         }
     }
