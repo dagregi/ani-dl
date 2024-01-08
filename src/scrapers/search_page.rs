@@ -38,12 +38,12 @@ struct Video {
 }
 
 #[derive(Debug, Clone)]
-pub struct AnimeThemeData {
+pub struct AnimeThemeMetaData {
     pub anime_name: String,
     pub song_title: String,
     pub basename: String,
 }
-pub async fn search_page_scraper(query: &str) -> anyhow::Result<HashMap<String, AnimeThemeData>> {
+pub async fn search_page_scraper(query: &str) -> anyhow::Result<HashMap<String, AnimeThemeMetaData>> {
     let url = format!("https://api.animethemes.moe/animetheme?q={}&filter%5Bhas%5D=song&include=song.artists,anime.images,animethemeentries.videos", query);
 
     println!("Searching for: {}\n", query);
@@ -57,7 +57,7 @@ pub async fn search_page_scraper(query: &str) -> anyhow::Result<HashMap<String, 
             .into_iter()
             .for_each(|anime_theme_entry| {
                 anime_theme_entry.videos.into_iter().for_each(|video| {
-                    results.entry(video.link).or_insert(AnimeThemeData {
+                    results.entry(video.link).or_insert(AnimeThemeMetaData {
                         anime_name: anime_theme.anime.name.to_string(),
                         song_title: anime_theme.song.title.to_string(),
                         basename: video.basename,
