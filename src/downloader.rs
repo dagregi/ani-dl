@@ -1,6 +1,6 @@
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use std::fmt::Write;
 use std::collections::HashMap;
+use std::fmt::Write;
 use tokio::{
     fs::{self, File},
     io::{AsyncWriteExt, BufWriter},
@@ -8,7 +8,7 @@ use tokio::{
     task::JoinSet,
 };
 
-use crate::scrapers::search_page::AnimeThemeMetaData;
+use crate::structs::AnimeThemeMetaData;
 
 pub async fn download_songs(themes: HashMap<String, AnimeThemeMetaData>) -> anyhow::Result<()> {
     let mut tasks = JoinSet::new();
