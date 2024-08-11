@@ -1,12 +1,6 @@
 # ani-dl
 
-This CLI application, built with Rust and the Clap library, allows users to crawl and scrape animethemes.moe to download the openings and endings of anime. The downloaded files are saved on the user's computer for offline viewing.
-
-## Features
-
-* Crawl and scrape animethemes.moe
-* Search for your favourite anime themes
-* Download and save openings and endings of anime
+This CLI application, built with Rust and the Clap library, allows users to crawl and scrape animethemes.moe to download the openings and endings of anime
 
 ## Installation
 
@@ -32,5 +26,3 @@ ani-dl --all --search "THEME"
 ## Support
 
 For any issues or feedback, please open an issue on GitHub.
-
-Happy downloading!
